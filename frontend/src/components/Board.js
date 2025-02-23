@@ -3,17 +3,44 @@ import { startGame, getGameState, makeMove, aiMove, placeRing, aiPlaceRing } fro
 import Ring from './Ring';
 import Marker from './Marker';
 import '../styles/Board.css';
+import axios from 'axios';
 
 const Board = () => {
-    const [gameState, setGameState] = useState(null);
+    const [gameState, setGameState] = useState([]);
 
     useEffect(() => {
-        startGame().then(() => {
-            getGameState().then(response => {
+        const fetchBoard = async () => {
+            try {
+                const response = await axios.get('/initialize_board');
+                console.log("Board state fetched: ", response.data); // Debugging message
                 setGameState(response.data);
-            });
-        });
+            } catch (error) {
+                console.error("Error fetching the board state: ", error);
+            }
+        };
+
+        fetchBoard();
     }, []);
+
+    const renderBoard = () => {
+        if (gameState.length === 0) {
+            console.log("Game state is empty."); // Debugging message
+            return <div>Loading...</div>;
+        }
+
+        console.log("Rendering board with state: ", gameState); // Debugging message
+
+        return gameState.map((row, rowIndex) => (
+            <div key={rowIndex} className="board-row">
+                {row.map((cell, cellIndex) => (
+                    <div key={cellIndex} className="board-cell">
+                        {cell === 1 && <div className="ring">Ring</div>} {/* Adjust as needed */}
+                    </div>
+                ))}
+            </div>
+        ));
+    
+    };
 
     const handlePlaceRing = (position) => {
         placeRing(gameState.current_player, position).then(() => {
@@ -44,20 +71,7 @@ const Board = () => {
 
     return (
         <div className="board">
-            {gameState.board.map((row, rowIndex) => (
-                row.map((cell, colIndex) => (
-                    cell && (
-                        <div
-                            className="cell"
-                            key={`${rowIndex}-${colIndex}`}
-                            onClick={() => gameState.game_phase === 'placing' ? handlePlaceRing([rowIndex, colIndex]) : null}
-                        >
-                            {gameState.board[rowIndex][colIndex] && <Ring player={gameState.board[rowIndex][colIndex]} />}
-                            {gameState.markers && gameState.markers.some(marker => marker[0] === rowIndex && marker[1] === colIndex) && <Marker />}
-                        </div>
-                    )
-                ))
-            ))}
+            {renderBoard()}
             <button onClick={handleAiMove}>AI Move</button>
         </div>
     );

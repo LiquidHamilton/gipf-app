@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from models.yinsh import Yinsh
 from models.yinshAi import YinshAI
+from models.board import Board
 
 app = Flask(__name__)
 CORS(app) # Allow frontend to make requests
@@ -11,6 +12,11 @@ game = Yinsh() #Initialize game instance
 @app.route('/')
 def home():
     return jsonify({"message": "Welcome to the GIPF-Series backend!"})
+
+@app.route('/initialize_board', methods=['GET'])
+def initialize_board():
+    board_instance = Board()
+    return jsonify(board_instance.board)
 
 @app.route('/start-game', methods=['POST'])
 def start_game():
