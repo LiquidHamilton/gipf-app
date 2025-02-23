@@ -21,22 +21,18 @@ def start_game():
 @app.route('/game-state', methods=['GET'])
 def get_game_state():
     """Returns the current board state."""
-    state = {
-        "board": game.markers,
-        "rings": game.rings,
-        "current_player": game.current_player,
-        "game_over": game.game_over
-    }
+    state = game.get_game_state()
     return jsonify(state), 200
 
 @app.route('/make-move', methods=['POST'])
 def make_move():
     """Processes a player's move."""
     data = request.get_json()
+    player_id = data.get("player_id")
     start = tuple(data.get("start"))
     end = tuple(data.get("end"))
 
-    if game.move_ring(start, end):
+    if game.move_ring(player_id, start, end):
         return jsonify({"message": "Move successful"}), 200
     return jsonify({"error": "Invalid move"}), 400
 
