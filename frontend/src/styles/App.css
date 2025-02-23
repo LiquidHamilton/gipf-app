@@ -1,0 +1,49 @@
+.App {
+  text-align: center;
+}
+
+.App-header {
+  background-color: #282c34;
+  padding: 20px;
+  color: white;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(11, 40px);
+  gap: 5px;
+  margin: 20px auto;
+  width: fit-content;
+}
+
+.cell {
+  width: 40px;
+  height: 40px;
+  background-color: #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #aaa;
+}
+
+.ring {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 3px solid;
+}
+
+.ring.player-1 {
+  border-color: blue;
+}
+
+.ring.player-2 {
+  border-color: red;
+}
+
+.marker {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: black;
+}

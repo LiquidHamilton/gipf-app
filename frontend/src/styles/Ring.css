@@ -1,0 +1,15 @@
+.ring {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 3px solid;
+  }
+  
+  .ring.player-1 {
+    border-color: blue;
+  }
+  
+  .ring.player-2 {
+    border-color: red;
+  }
+  

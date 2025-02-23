@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from models.yinsh import Yinsh
+from models.yinshAi import YinshAI
 
 app = Flask(__name__)
 CORS(app) # Allow frontend to make requests
@@ -29,12 +30,19 @@ def make_move():
     """Processes a player's move."""
     data = request.get_json()
     player_id = data.get("player_id")
-    start = tuple(data.get("start"))
-    end = tuple(data.get("end"))
+    position = data.get("position")
+    start = data.get("start")
+    end = data.get("end")
 
-    if game.move_ring(player_id, start, end):
-        return jsonify({"message": "Move successful"}), 200
-    return jsonify({"error": "Invalid move"}), 400
+    if game.game_phase == "placing" and position:
+        if game.place_ring(player_id, tuple(position)):
+            return jsonify({"message": "Ring placed successfully"}), 200
+        return jsonify({"error": "Invalid ring placement"}), 400
+    elif game.game_phase == "playing" and start and end:
+        if game.move_ring(player_id, tuple(start), tuple(end)):
+            return jsonify({"message": "Move successful"}), 200
+        return jsonify({"error": "Invalid move"}), 400
+    return jsonify({"error": "Invalid request"}), 400
 
 @app.route('/check-winner', methods=['GET'])
 def check_winner():
@@ -43,6 +51,51 @@ def check_winner():
     if winner:
         return jsonify({"winner": winner}), 200
     return jsonify({"message": "No winner yet"}), 200
+
+@app.route('/ai-move', methods=['POST'])
+def ai_move():
+    """AI makes a move."""
+    data = request.get_json()
+    player_id = data.get("player_id")
+
+    ai = YinshAI(player_id)
+    move = ai.make_move(game)
+
+    if move and game.move_ring(player_id, move['start'], move['end']):
+        return jsonify({"message": "Move successful"}), 200
+    
+    return jsonify({"error": "AI move failed"}), 400
+
+@app.route('/place-ring', methods=['POST'])
+def place_ring():
+    """Places a ring for a player."""
+    data = request.get_json()
+    player_id = data.get("player_id")
+    position = tuple(data.get("position"))
+
+    if game.place_ring(player_id, position):
+        game.switch_turns()
+        return jsonify({"message": "Ring placed successfully"}), 200
+    return jsonify({"error": "Invalid ring placement"}), 400
+
+@app.route('/ai-place-ring', methods=['POST'])
+def ai_place_ring():
+    """AI places a ring during the initial placing phase."""
+    data = request.get_json()
+    player_id = data.get("player_id")
+
+    ai = YinshAI(player_id)
+    position = ai.select_ring_placement(game)
+
+    if position and game.place_ring(player_id, position):
+        game.switch_turns()
+        return jsonify({
+            "message": "Ring placed successfully",
+            "position": position
+        }), 200
+    return jsonify({"error": "AI ring placement failed"}), 400
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
