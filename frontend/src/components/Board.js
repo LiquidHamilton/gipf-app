@@ -12,7 +12,7 @@ const Board = () => {
         const initializeGame = async () => {
             await startGame();
             const initialState = await getGameState();
-            setGameState(initialState);
+            setGameState({...initialState});
             console.log("Game started:", initialState);
         };
         initializeGame();
@@ -46,12 +46,12 @@ const Board = () => {
     const handlePlaceRing = async (position) => {
         await placeRing(gameState.current_player, position);
         const updatedState = await getGameState();
-        setGameState(updatedState);
+        setGameState({...updatedState});
         console.log("After placing ring - Game State:", updatedState);
         if (updatedState.game_phase === 'placing') {
             await aiPlaceRing(3 - gameState.current_player);
             const aiUpdatedState = await getGameState();
-            setGameState(aiUpdatedState);
+            setGameState({...aiUpdatedState});
             console.log("After AI placing ring - Game State:", aiUpdatedState);
         }
     };
@@ -62,19 +62,29 @@ const Board = () => {
             start,
             end
         };
-
+    
         console.log("Sending move request with payload:", payload);
-
-        await makeMove(gameState.current_player, start, end);
-        const updatedState = await getGameState();
-        console.log("After moving ring - Game State:", updatedState);
-        setGameState(updatedState);
+    
+        try {
+            await makeMove(gameState.current_player, start, end);
+            const updatedState = await getGameState();
+            console.log("After moving ring - Game State:", updatedState);
+            setGameState({...updatedState});
+        } catch (error) {
+            console.error("Error moving ring:", error);
+            if (error.response && error.response.data) {
+                console.error("Error details:", error.response.data);
+            } else {
+                console.error("Error details:", error.message);
+            }
+        }
     };
+    
 
     const handleAiMove = async () => {
         await aiMove(gameState.current_player);
         const updatedState = await getGameState();
-        setGameState(updatedState);
+        setGameState({...updatedState});
     };
 
     if (!gameState) return <div>Loading...</div>;
@@ -85,7 +95,7 @@ const Board = () => {
                 row.map((cell, colIndex) => (
                     <div
                         className="cell"
-                        key={`${rowIndex}-${colIndex}-${gameState.board[rowIndex][colIndex]}`} // Ensure unique key
+                        key={`${rowIndex}-${colIndex}-${gameState.board[rowIndex][colIndex]}`}
                         onClick={() => handleCellClick([rowIndex, colIndex])}
                     >
                         {cell && <Ring player={cell} position={[rowIndex, colIndex]} onRingClick={handleRingClick} />}
