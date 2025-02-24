@@ -42,10 +42,12 @@ def make_move():
 
     if game.game_phase == "placing" and position:
         if game.place_ring(player_id, tuple(position)):
+            game.switch_turns()  # Switch turns after placing a ring
             return jsonify({"message": "Ring placed successfully"}), 200
         return jsonify({"error": "Invalid ring placement"}), 400
-    elif game.game_phase == "playing" and start and end:
+    elif game.game_phase == "moving" and start and end:
         if game.move_ring(player_id, tuple(start), tuple(end)):
+            game.switch_turns()  # Switch turns after making a move
             return jsonify({"message": "Move successful"}), 200
         return jsonify({"error": "Invalid move"}), 400
     return jsonify({"error": "Invalid request"}), 400
@@ -68,6 +70,7 @@ def ai_move():
     move = ai.make_move(game)
 
     if move and game.move_ring(player_id, move['start'], move['end']):
+        game.switch_turns()  # Switch turns after AI makes a move
         return jsonify({"message": "Move successful"}), 200
     
     return jsonify({"error": "AI move failed"}), 400

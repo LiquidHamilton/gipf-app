@@ -6,6 +6,7 @@ import '../styles/Board.css';
 
 const Board = () => {
     const [gameState, setGameState] = useState(null);
+    const [selectedRing, setSelectedRing] = useState(null);
 
     useEffect(() => {
         startGame().then(() => {
@@ -15,21 +16,34 @@ const Board = () => {
         });
     }, []);
 
+    const handleRingClick = (position) => {
+        if (gameState.game_phase === 'moving') {
+            setSelectedRing(position);
+        }
+    };
+
+    const handleCellClick = (position) => {
+        if (selectedRing && gameState.game_phase === 'moving') {
+            handleMove(selectedRing, position);
+            setSelectedRing(null);
+        } else if (gameState.game_phase === 'placing') {
+            handlePlaceRing(position);
+        }
+    };
+
     const handlePlaceRing = (position) => {
         placeRing(gameState.current_player, position).then(() => {
             getGameState().then(response => {
-                console.log("After Placing Ring - Game State:", response.data);  // Add console log
                 setGameState(response.data);
                 if (response.data.game_phase === 'placing') {
                     aiPlaceRing(3 - gameState.current_player).then(() => {
                         getGameState().then(response => {
-                            console.log("After AI Placing Ring - Game State:", response.data);  // Add console log
                             setGameState(response.data);
-                        }).catch(error => console.error("Error getting game state after AI placing ring:", error));  // Add error log
-                    }).catch(error => console.error("Error in AI placing ring:", error));  // Add error log
+                        });
+                    });
                 }
-            }).catch(error => console.error("Error getting game state after placing ring:", error));  // Add error log
-        }).catch(error => console.error("Error placing ring:", error));  // Add error log
+            });
+        });
     };
 
     const handleMove = (start, end) => {
@@ -53,9 +67,9 @@ const Board = () => {
                     <div
                         className="cell"
                         key={`${rowIndex}-${colIndex}`}
-                        onClick={() => gameState.game_phase === 'placing' ? handlePlaceRing([rowIndex, colIndex]) : null}
+                        onClick={() => handleCellClick([rowIndex, colIndex])}
                     >
-                        {cell && <Ring player={cell} />}
+                        {cell && <Ring player={cell} onClick={() => handleRingClick([rowIndex, colIndex])} />}
                         {gameState.markers && gameState.markers.some(marker => marker[0] === rowIndex && marker[1] === colIndex) && <Marker />}
                     </div>
                 ))
