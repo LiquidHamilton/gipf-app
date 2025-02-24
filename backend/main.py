@@ -29,6 +29,7 @@ def start_game():
 def get_game_state():
     """Returns the current board state."""
     state = game.get_game_state()
+    print("Current game state:", state)
     return jsonify(state), 200
 
 @app.route('/make-move', methods=['POST'])
@@ -36,21 +37,26 @@ def make_move():
     """Processes a player's move."""
     data = request.get_json()
     player_id = data.get("player_id")
-    position = data.get("position")
     start = data.get("start")
     end = data.get("end")
 
-    if game.game_phase == "placing" and position:
-        if game.place_ring(player_id, tuple(position)):
-            game.switch_turns()  # Switch turns after placing a ring
-            return jsonify({"message": "Ring placed successfully"}), 200
-        return jsonify({"error": "Invalid ring placement"}), 400
-    elif game.game_phase == "moving" and start and end:
-        if game.move_ring(player_id, tuple(start), tuple(end)):
-            game.switch_turns()  # Switch turns after making a move
-            return jsonify({"message": "Move successful"}), 200
-        return jsonify({"error": "Invalid move"}), 400
-    return jsonify({"error": "Invalid request"}), 400
+    print("Received move request with payload:", data)  # Log the received request
+
+    try:
+        if game.game_phase == "playing" and start and end:
+            if game.move_ring(player_id, tuple(start), tuple(end)):
+                game.switch_turns()  # Switch turns after making a move
+                return jsonify({"message": "Move successful"}), 200
+            return jsonify({"error": "Invalid move"}), 400
+        else:
+            print("Invalid request data:", data)  # Log invalid request data
+        return jsonify({"error": "Invalid request"}), 400
+    except Exception as e:
+        print("Error processing move request:", str(e))  # Log any exceptions
+        return jsonify({"error": "Internal server error"}), 500
+
+
+
 
 @app.route('/check-winner', methods=['GET'])
 def check_winner():
