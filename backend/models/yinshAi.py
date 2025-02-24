@@ -68,17 +68,17 @@ class YinshAI(AI):
         return selected_move
 
     def get_possible_positions(self, game):
-        """Generates all possible ring placement positions for the AI player."""
+        """Generates all possible ring placement positions for the AI player"""
         possible_positions = []
-        for x in range(len(game.board.board)):
-            for y in range(len(game.board.board[x])):
-                if game.board.is_valid_position((x, y)) and game.board.get_piece((x, y)) is None:
+        for x in range(11):
+            for y in range(11):
+                if game.board.is_valid_position((x, y)) and not game.board.get_piece((x, y)):
                     possible_positions.append((x, y))
         return possible_positions
     
     def select_ring_placement(self, game):
-        """Selects a ring placement position for the AI during the initial placing phase."""
+        """Selects a ring placement for the AI during the initial phase."""
         possible_positions = self.get_possible_positions(game)
         if possible_positions:
-            return possible_positions[0]  # Example: Select the first available position
+            return possible_positions[0] # Update this for better reasoning
         return None

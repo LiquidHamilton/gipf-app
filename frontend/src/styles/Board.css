@@ -1,15 +1,17 @@
 .board {
-    display: grid;
-    grid-template-columns: repeat(board_size, 1fr); /* Adjust as needed */
-    grid-template-rows: repeat(board_size, 1fr); /* Adjust as needed */
-    gap: 1px; /* Adjust for spacing between cells */
+  display: grid;
+  grid-template-columns: repeat(11, 40px);
+  gap: 5px;
+  margin: 20px auto;
+  width: fit-content;
 }
 
-.board-cell {
-    width: 50px; /* Adjust as needed */
-    height: 50px; /* Adjust as needed */
-    border: 1px solid black; /* Add border for visibility */
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.cell {
+  width: 40px;
+  height: 40px;
+  background-color: #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #aaa;
 }

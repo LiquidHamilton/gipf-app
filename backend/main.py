@@ -14,7 +14,7 @@ def home():
     return jsonify({"message": "Welcome to the GIPF-Series backend!"})
 
 @app.route('/initialize_board', methods=['GET'])
-def initialize_board():
+def initalize_board():
     board_instance = Board()
     return jsonify(board_instance.board)
 

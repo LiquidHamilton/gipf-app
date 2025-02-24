@@ -3,56 +3,33 @@ import { startGame, getGameState, makeMove, aiMove, placeRing, aiPlaceRing } fro
 import Ring from './Ring';
 import Marker from './Marker';
 import '../styles/Board.css';
-import axios from 'axios';
 
 const Board = () => {
-    const [gameState, setGameState] = useState([]);
+    const [gameState, setGameState] = useState(null);
 
     useEffect(() => {
-        const fetchBoard = async () => {
-            try {
-                const response = await axios.get('/initialize_board');
-                console.log("Board state fetched: ", response.data); // Debugging message
+        startGame().then(() => {
+            getGameState().then(response => {
                 setGameState(response.data);
-            } catch (error) {
-                console.error("Error fetching the board state: ", error);
-            }
-        };
-
-        fetchBoard();
+            });
+        });
     }, []);
-
-    const renderBoard = () => {
-        if (gameState.length === 0) {
-            console.log("Game state is empty."); // Debugging message
-            return <div>Loading...</div>;
-        }
-
-        console.log("Rendering board with state: ", gameState); // Debugging message
-
-        return gameState.map((row, rowIndex) => (
-            <div key={rowIndex} className="board-row">
-                {row.map((cell, cellIndex) => (
-                    <div key={cellIndex} className="board-cell">
-                        {cell === 1 && <div className="ring">Ring</div>} {/* Adjust as needed */}
-                    </div>
-                ))}
-            </div>
-        ));
-    
-    };
 
     const handlePlaceRing = (position) => {
         placeRing(gameState.current_player, position).then(() => {
             getGameState().then(response => {
+                console.log("After Placing Ring - Game State:", response.data);  // Add console log
                 setGameState(response.data);
                 if (response.data.game_phase === 'placing') {
                     aiPlaceRing(3 - gameState.current_player).then(() => {
-                        getGameState().then(response => setGameState(response.data));
-                    });
+                        getGameState().then(response => {
+                            console.log("After AI Placing Ring - Game State:", response.data);  // Add console log
+                            setGameState(response.data);
+                        }).catch(error => console.error("Error getting game state after AI placing ring:", error));  // Add error log
+                    }).catch(error => console.error("Error in AI placing ring:", error));  // Add error log
                 }
-            });
-        });
+            }).catch(error => console.error("Error getting game state after placing ring:", error));  // Add error log
+        }).catch(error => console.error("Error placing ring:", error));  // Add error log
     };
 
     const handleMove = (start, end) => {
@@ -71,7 +48,18 @@ const Board = () => {
 
     return (
         <div className="board">
-            {renderBoard()}
+            {gameState.board.map((row, rowIndex) => (
+                row.map((cell, colIndex) => (
+                    <div
+                        className="cell"
+                        key={`${rowIndex}-${colIndex}`}
+                        onClick={() => gameState.game_phase === 'placing' ? handlePlaceRing([rowIndex, colIndex]) : null}
+                    >
+                        {cell && <Ring player={cell} />}
+                        {gameState.markers && gameState.markers.some(marker => marker[0] === rowIndex && marker[1] === colIndex) && <Marker />}
+                    </div>
+                ))
+            ))}
             <button onClick={handleAiMove}>AI Move</button>
         </div>
     );
