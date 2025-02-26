@@ -19,12 +19,15 @@ export const getGameState = async () => {
 };
 
 export const makeMove = async (player_id, start, end) => {
+    console.log("Attempting move - Player:", player_id, "From:", start, "To:", end); // Debugging
+
     try {
         const response = await axios.post(`${API_URL}/make-move`, {
             player_id,
             start,
             end
         });
+        console.log("Move response:", response.data);  // Debugging successful response
         return response.data;
     } catch (error) {
         if (error.response && error.response.data) {
@@ -35,6 +38,7 @@ export const makeMove = async (player_id, start, end) => {
         throw error;  // Re-throw the error to be handled in the calling function
     }
 };
+
 
 export const aiMove = (playerId) => axios.post(`${API_URL}/ai-move`, { player_id: playerId });
 export const placeRing = (playerId, position) => axios.post(`${API_URL}/place-ring`, {

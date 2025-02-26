@@ -25,9 +25,19 @@ const Board = () => {
     const handleRingClick = (e, position) => {
         e.stopPropagation();
         console.log("Ring clicked at:", position);
+
         if (gameState.game_phase === 'playing') {
-            console.log("Selected ring for moving:", position);
-            setSelectedRing(position);
+            if (!selectedRing) {
+                setSelectedRing(position);
+            } else {
+                makeMove(selectedRing, position)
+                    .then((updatedState) => {
+                        console.log("Move made, updated state:", updatedState);
+                        setGameState({...updatedState});
+                        setSelectedRing(null);
+                    })
+                    .catch((error) => console.error("Move failed:", error));
+            }
         }
     };
 
@@ -56,35 +66,26 @@ const Board = () => {
         }
     };
 
-    const handleMove = async (start, end) => {
-        const payload = {
-            player_id: gameState.current_player,
-            start,
-            end
-        };
-    
-        console.log("Sending move request with payload:", payload);
-    
+    const handleMove = async (start, end) => { 
+        console.log("handleMove called with:", gameState.current_player, start, end);  
         try {
-            await makeMove(gameState.current_player, start, end);
-            const updatedState = await getGameState();
-            console.log("After moving ring - Game State:", updatedState);
-            setGameState({...updatedState});
+            await makeMove(gameState.current_player, start, end); // Send move to backend
+            const newGameState = await getGameState(); // Fetch updated game state
+            setGameState(newGameState); // Update React state
         } catch (error) {
-            console.error("Error moving ring:", error);
-            if (error.response && error.response.data) {
-                console.error("Error details:", error.response.data);
-            } else {
-                console.error("Error details:", error.message);
-            }
+            console.error("Error making move:", error);
         }
     };
     
 
     const handleAiMove = async () => {
-        await aiMove(gameState.current_player);
-        const updatedState = await getGameState();
-        setGameState({...updatedState});
+        try {
+            await aiMove(gameState.current_player); // Trigger AI move
+            const newGameState = await getGameState(); // Fetch updated game state
+            setGameState(newGameState); // Update React state
+        } catch (error) {
+            console.error("Error during AI move:", error);
+        }
     };
 
     if (!gameState) return <div>Loading...</div>;

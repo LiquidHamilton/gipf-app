@@ -40,22 +40,18 @@ def make_move():
     start = data.get("start")
     end = data.get("end")
 
-    print("Received move request with payload:", data)  # Log the received request
-
-    try:
-        if game.game_phase == "playing" and start and end:
-            if game.move_ring(player_id, tuple(start), tuple(end)):
-                game.switch_turns()  # Switch turns after making a move
-                return jsonify({"message": "Move successful"}), 200
-            return jsonify({"error": "Invalid move"}), 400
-        else:
-            print("Invalid request data:", data)  # Log invalid request data
+    if  player_id is None or start is None or end is None:
+        print("Invalid move request:", data)
         return jsonify({"error": "Invalid request"}), 400
-    except Exception as e:
-        print("Error processing move request:", str(e))  # Log any exceptions
-        return jsonify({"error": "Internal server error"}), 500
 
-
+    success = game.move_ring(player_id, start, end)
+    if success:
+        game.switch_turns()
+        state = game.get_game_state()
+        print("updated game state:", state)
+        return jsonify(state), 200
+    else:
+        return jsonify({"error": "Invalid move"}), 400
 
 
 @app.route('/check-winner', methods=['GET'])
@@ -79,8 +75,10 @@ def ai_move():
         game.switch_turns()  # Switch turns after AI makes a move
         return jsonify({"message": "Move successful"}), 200
     
-    return jsonify({"error": "AI move failed"}), 400
-
+    state = game.get_game_state()
+    print("Updated game state after AI move:", state)  # Debug statement
+    return jsonify(state), 200
+    
 @app.route('/place-ring', methods=['POST'])
 def place_ring():
     """Places a ring for a player."""
