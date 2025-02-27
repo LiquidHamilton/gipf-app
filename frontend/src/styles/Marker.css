@@ -1,7 +1,13 @@
 .marker {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background-color: black;
-  }
-  
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+}
+
+.marker.player-1 {
+  background-color: blue;
+}
+
+.marker.player-2 {
+  background-color: red;
+}

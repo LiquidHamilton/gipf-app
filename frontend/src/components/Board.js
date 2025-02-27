@@ -12,7 +12,7 @@ const Board = () => {
         const initializeGame = async () => {
             await startGame();
             const initialState = await getGameState();
-            setGameState({...initialState});
+            setGameState(initialState);
             console.log("Game started:", initialState);
         };
         initializeGame();
@@ -30,10 +30,12 @@ const Board = () => {
             if (!selectedRing) {
                 setSelectedRing(position);
             } else {
-                makeMove(selectedRing, position)
+                // Pass current_player from gameState and use the proper state setter
+                makeMove(gameState.current_player, selectedRing, position)
                     .then((updatedState) => {
                         console.log("Move made, updated state:", updatedState);
-                        setGameState({...updatedState});
+                        // Fix: Set the game state directly
+                        setGameState(updatedState);
                         setSelectedRing(null);
                     })
                     .catch((error) => console.error("Move failed:", error));
@@ -93,20 +95,27 @@ const Board = () => {
     return (
         <div className="board">
             {gameState.board.map((row, rowIndex) => (
-                row.map((cell, colIndex) => (
-                    <div
-                        className="cell"
-                        key={`${rowIndex}-${colIndex}-${gameState.board[rowIndex][colIndex]}`}
-                        onClick={() => handleCellClick([rowIndex, colIndex])}
-                    >
-                        {cell && <Ring player={cell} position={[rowIndex, colIndex]} onRingClick={handleRingClick} />}
-                        {gameState.markers && gameState.markers.some(marker => marker[0] === rowIndex && marker[1] === colIndex) && <Marker />}
-                    </div>
-                ))
+                row.map((cell, colIndex) => {
+                    // Look up a marker for this cell using the new structure
+                    const markerHere = gameState.markers && gameState.markers.find(
+                        marker => marker.position[0] === rowIndex && marker.position[1] === colIndex
+                    );
+                    return (
+                        <div
+                            className="cell"
+                            key={`${rowIndex}-${colIndex}`}
+                            onClick={() => handleCellClick([rowIndex, colIndex])}
+                        >
+                            {cell && <Ring player={cell} position={[rowIndex, colIndex]} onRingClick={handleRingClick} />}
+                            {/* Render the Marker component only if a marker is found, passing the correct player for color */}
+                            {markerHere && <Marker player={markerHere.player} />}
+                        </div>
+                    );
+                })
             ))}
-            <button onClick={handleAiMove}>AI Move</button>
         </div>
     );
 };
+
 
 export default Board;

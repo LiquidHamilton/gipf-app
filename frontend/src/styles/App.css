@@ -23,13 +23,6 @@
   border-color: red;
 }
 
-.marker {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background-color: black;
-}
-
 .board {
   display: grid;
   grid-template-columns: repeat(11, 40px);

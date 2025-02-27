@@ -19,17 +19,25 @@ class Game:
         pass
 
     def get_game_state(self):
-        """Returns the current game state"""
+        # Create a list of marker objects with position and player info.
+        markers = (
+            [{"position": m, "player": 1} for m in self.players[1].get_markers()] +
+            [{"position": m, "player": 2} for m in self.players[2].get_markers()]
+        )
+
         return {
             "board": self.board.get_board_state(),
             "players": {
                 player_id: { 
-                    "rings": player.get_rings(),
-                    "markers": player.get_markers()
+                    "rings": self.players[player_id].get_rings(),
+                    "markers": self.players[player_id].get_markers()
                 }
-                for player_id, player in self.players.items()
+                for player_id in self.players
             },
+            "markers": markers,  # Top-level markers array
             "current_player": self.current_player,
             "game_phase": self.game_phase,
             "game_over": self.game_over
         }
+
+
