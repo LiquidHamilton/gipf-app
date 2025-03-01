@@ -138,48 +138,64 @@ class Yinsh(Game):
         return False
 
     def check_winner(self):
-        # Directions adjusted for odd-r offset neighbors
         directions = [
-            (0, 1),   # Right
-            (1, 0),   # Down (vertical)
-            (1, 1),   # Down-right (even rows)/Down (odd rows)
-            (1, -1),  # Down-left (even rows)/Down-left (odd rows)
-            (-1, 0),  # Up (vertical)
-            (-1, 1),  # Up-right (even rows)/Up-right (odd rows)
-            (-1, -1), # Up-left (even rows)/Up-left (odd rows)
+            # Horizontal (East/West)
+            (0, 1), (0, -1),
+            # Vertical (adjusted for odd-r offset)
+            (1, 0), (-1, 0),
+            # Diagonals (SE/NW and NE/SW)
+            (1, 1), (-1, -1),
+            (1, -1), (-1, 1)
         ]
 
         for player_id in [1, 2]:
-            markers = self.players[player_id].markers
-            marker_set = set(markers)
+            markers = set(self.players[player_id].markers)
+            processed = set()
+            sequences = []
+
             for (row, col) in markers:
+                if (row, col) in processed:
+                    continue
+                    
                 for d_row, d_col in directions:
                     sequence = []
                     for step in range(5):
                         current_row = row + d_row * step
                         current_col = col + d_col * step
-                        # Adjust column for diagonal moves based on row parity
-                        if d_row != 0 and d_col != 0:
-                            if (row + d_row * (step - 1)) % 2 == 0:  # Previous row even?
-                                current_col += d_row * d_col * (step % 2)
-                        if (current_row, current_col) in marker_set:
-                            sequence.append((current_row, current_col))
-                        else:
+                        # Adjust column for odd-r vertical moves
+                        if d_row != 0 and current_row % 2 == 1 and d_col == 0:
+                            current_col += (current_row - row) // 2
+                        
+                        if (current_row, current_col) not in markers:
                             break
+                        sequence.append((current_row, current_col))
+                    
                     if len(sequence) >= 5:
-                        self.handle_sequence(player_id, sequence)
-                        return player_id
+                        sequences.append(sequence)
+                        processed.update(sequence)
+                        break  # Only count each marker once
+
+            # Handle first valid sequence only per turn
+            if sequences:
+                self.handle_sequence(player_id, sequences[0])
+                if len(self.scored_rings[player_id]) >= 3:
+                    return player_id
+
         return None
 
-    def handle_sequence(self, player_id, axial_sequence):
-        opponent_id = 3 - player_id
-        for axial in axial_sequence:
-            pos = axial_to_offset(*axial)
+    def handle_sequence(self, player_id, sequence):
+        # Remove only the markers in the sequence
+        for pos in sequence:
             if pos in self.players[player_id].markers:
                 self.players[player_id].remove_marker(pos)
         
+        # Remove one ring only if available
         if self.players[player_id].rings:
             removed_ring = self.players[player_id].rings.pop()
             self.scored_rings[player_id].append(removed_ring)
             self.board.remove_piece(removed_ring)
-        return None
+            print(f"Player {player_id} scored 1 ring. Total scored: {len(self.scored_rings[player_id])}")
+       
+        # Check if the player has won
+        if len(self.scored_rings[player_id]) >= 3:
+            print(f"Player {player_id} WINS!")
