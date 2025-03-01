@@ -22,16 +22,7 @@ class Board:
             self.grid[row][col] = None
             return True
         return False
-    
-    def is_valid_position(self, position):
-        """Checks if a position is valid on the board based on row lengths."""
-        row, col = position
-        if row < 0 or row >= len(self.row_lengths):
-            return False
-        if col < 0 or col >= self.row_lengths[row]:
-            return False
-        return True
-    
+       
     def get_board_state(self):
         """Returns the current board grid."""
         return self.grid
@@ -42,3 +33,14 @@ class Board:
             row, col = position
             return self.grid[row][col]
         return None
+    
+    def is_valid_position(self, position):
+        """Checks if a position is valid on the board based on row lengths."""
+        row, col = position
+        if row < 0 or row >= len(self.row_lengths):
+            return False
+        # Handle odd-r offset column wrapping
+        max_col = self.row_lengths[row] - 1
+        if col < 0 or col > max_col:
+            return False
+        return True

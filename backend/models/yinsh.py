@@ -45,17 +45,30 @@ class Yinsh(Game):
             return False
         if self.board.get_piece(position) is not None:
             return False
+        
         self.board.place_piece(position, player_id)
         self.players[player_id].rings.append(position)
         print(f"Player {player_id} rings after placement: {self.players[player_id].rings}")
+        
         if len(self.players[1].rings) == 5 and len(self.players[2].rings) == 5:
             self.game_phase = "playing"
         return True
+
+    def is_valid_placement(self, row, col):
+        # Only allow vertical or diagonal placement
+        directions = [(1, 0), (0, 1), (1, 1), (1, -1)]
+        for d_row, d_col in directions:
+            new_row, new_col = row + d_row, col + d_col
+            if self.board.is_valid_position((new_row, new_col)) and self.board.get_piece((new_row, new_col)) is None:
+                return True
+        return False
+
 
     def move_ring(self, player_id, start_pos, end_pos):
         print(f"Current game phase: {self.game_phase}")
         print(f"Current player: {self.current_player}")
         print(f"Player {player_id} rings: {self.players[player_id].rings}")
+        
         if self.game_phase != "playing":
             print("Move failed: game phase is not 'playing'")
             return False
@@ -69,6 +82,11 @@ class Yinsh(Game):
             print(f"Move failed: end position {end_pos} occupied by a ring")
             return False
 
+        # Check if the move is valid (only vertical or diagonal allowed)
+        if not self.is_valid_move(start_pos, end_pos):
+            print(f"Move failed: invalid move from {start_pos} to {end_pos}")
+            return False
+
         # Update player's rings
         self.players[player_id].remove_ring(start_pos)
         self.players[player_id].add_ring(end_pos)
@@ -79,7 +97,8 @@ class Yinsh(Game):
         self.board.place_piece(end_pos, player_id)
         
         self.flip_markers(start_pos, end_pos)
-        # Check winner after move.
+        
+        # Check winner after move
         winner = self.check_winner()
         if winner is not None:
             print(f"Game over! Player {winner} wins.")
@@ -88,6 +107,94 @@ class Yinsh(Game):
         self.switch_turns()
         print(f"Move successful: {start_pos} -> {end_pos}")
         return True
+
+    def is_valid_move(self, start_pos, end_pos):
+        start_row, start_col = start_pos
+        end_row, end_col = end_pos
+        
+        # Calculate direction components
+        d_row = end_row - start_row
+        d_col = end_col - start_col
+        
+        # Disallow horizontal moves (0 row change)
+        if d_row == 0:
+            return False
+
+        # Calculate direction vector
+        try:
+            step_row = d_row // abs(d_row)
+            step_col = d_col // abs(d_col) if d_col != 0 else 0
+        except ZeroDivisionError:
+            return False
+
+        # Vertical movement specific validation
+        if step_col == 0:  # Pure vertical move
+            current_row, current_col = start_row, start_col
+            for step in range(1, abs(d_row) + 1):
+                current_row = start_row + step * step_row
+                
+                # Calculate column adjustment for odd-r offset
+                if current_row % 2 != start_row % 2:  # Parity changed
+                    current_col = start_col + (step_row > 0) * (step % 2)
+                else:
+                    current_col = start_col
+                    
+                # Skip check for final position
+                if (current_row, current_col) == end_pos:
+                    continue
+                    
+                if not self.board.is_valid_position((current_row, current_col)):
+                    return False
+                if self.board.get_piece((current_row, current_col)) is not None:
+                    return False
+            
+            # Final position must match calculated end column
+            final_col = current_col
+            return end_col == final_col
+
+        # Diagonal validation
+        elif abs(d_row) == abs(d_col):
+            current_row, current_col = start_row, start_col
+            for step in range(1, abs(d_row)):
+                current_row += step_row
+                current_col += step_col
+                
+                # Adjust for odd-r offset in diagonal moves
+                if current_row % 2 != start_row % 2:
+                    current_col += step_col * (step % 2)
+                
+                if not self.board.is_valid_position((current_row, current_col)):
+                    return False
+                if self.board.get_piece((current_row, current_col)) is not None:
+                    return False
+            
+            return True
+
+        return False
+    
+    def get_move_direction(self, start, end):
+        """Returns normalized direction vector or None if invalid"""
+        d_row = end[0] - start[0]
+        d_col = end[1] - start[1]
+        
+        if d_row == 0 and d_col == 0:
+            return None  # No movement
+            
+        try:
+            step_row = d_row // abs(d_row)
+            step_col = d_col // abs(d_col) if d_col != 0 else 0
+        except ZeroDivisionError:
+            return None
+            
+        # Vertical must have 0 column change
+        if step_col == 0:
+            return (step_row, 0)
+        # Diagonal must have 1:1 ratio
+        elif abs(d_row) == abs(d_col):
+            return (step_row, step_col)
+        
+        return None
+
 
     def flip_markers(self, start, end, dry_run=False):
         def axial_line(a, b):
@@ -138,50 +245,50 @@ class Yinsh(Game):
         return False
 
     def check_winner(self):
-        directions = [
-            # Horizontal (East/West)
-            (0, 1), (0, -1),
-            # Vertical (adjusted for odd-r offset)
-            (1, 0), (-1, 0),
-            # Diagonals (SE/NW and NE/SW)
-            (1, 1), (-1, -1),
-            (1, -1), (-1, 1)
+        """Checks for five-in-a-row sequences and handles scoring."""
+        axial_directions = [
+            (0, 1),   # Vertical down-right
+            (0, -1),  # Vertical up-left
+            (1, -1),  # Diagonal up-right
+            (-1, 1),  # Diagonal down-left
+            (1, 0),   # Diagonal down-right (alternate)
+            (-1, 0)   # Diagonal up-left (alternate)
         ]
 
+        found_sequences = set()  # To prevent double counting
+
         for player_id in [1, 2]:
-            markers = set(self.players[player_id].markers)
-            processed = set()
-            sequences = []
+            markers = self.players[player_id].markers
+            marker_set = set(markers)
 
             for (row, col) in markers:
-                if (row, col) in processed:
-                    continue
-                    
-                for d_row, d_col in directions:
-                    sequence = []
-                    for step in range(5):
-                        current_row = row + d_row * step
-                        current_col = col + d_col * step
-                        # Adjust column for odd-r vertical moves
-                        if d_row != 0 and current_row % 2 == 1 and d_col == 0:
-                            current_col += (current_row - row) // 2
-                        
-                        if (current_row, current_col) not in markers:
-                            break
-                        sequence.append((current_row, current_col))
-                    
-                    if len(sequence) >= 5:
-                        sequences.append(sequence)
-                        processed.update(sequence)
-                        break  # Only count each marker once
+                q, r = offset_to_axial(row, col)  # Convert to axial
 
-            # Handle first valid sequence only per turn
-            if sequences:
-                self.handle_sequence(player_id, sequences[0])
-                if len(self.scored_rings[player_id]) >= 3:
-                    return player_id
+                for dq, dr in axial_directions:
+                    sequence = []
+                    
+                    for step in range(5):
+                        check_q = q + dq * step
+                        check_r = r + dr * step
+                        check_pos = axial_to_offset(check_q, check_r)
+
+                        # Ensure we stay within valid positions and check the marker
+                        if check_pos in marker_set:
+                            sequence.append(check_pos)
+                        else:
+                            break  # Stop if there's a gap
+                    
+                    if len(sequence) == 5 and tuple(sequence) not in found_sequences:
+                        found_sequences.add(tuple(sequence))
+                        self.handle_sequence(player_id, sequence)
+
+            # Check if the player has won
+            if len(self.scored_rings[player_id]) >= 3:
+                return player_id
 
         return None
+
+
 
     def handle_sequence(self, player_id, sequence):
         # Remove only the markers in the sequence
