@@ -6,7 +6,6 @@ from models.board import Board
 
 app = Flask(__name__)
 CORS(app) # Allow frontend to make requests
-
 game = Yinsh() #Initialize game instance
 
 @app.route('/')
@@ -48,7 +47,7 @@ def make_move():
     success = game.move_ring(player_id, start, end)
     if success:
         # Check if it's the AI's turn (assuming alternating turns)
-        if game.current_player != player_id:  # Assuming alternating turns
+        if game.game_phase == "playing" and game.current_player != player_id:  # Assuming alternating turns
             # It's AI's turn, make the AI move
             ai = YinshAI(game.current_player)
             ai_move = ai.make_move(game)
@@ -102,6 +101,7 @@ def place_ring():
     position = tuple(data.get("position"))
 
     if game.place_ring(player_id, position):
+        current_state = game.get_game_state()
         game.switch_turns()
         return jsonify({"message": "Ring placed successfully"}), 200
     return jsonify({"error": "Invalid ring placement"}), 400

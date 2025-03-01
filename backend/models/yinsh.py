@@ -1,14 +1,42 @@
 from models.game import Game
 from models.move import Move
 
+def offset_to_axial(row, col):
+    """
+    Converts odd-r offset coordinates to axial coordinates.
+    Assumes an odd-r layout.
+    """
+    q = col - (row - (row & 1)) // 2
+    r = row
+    return (q, r)
+
+def axial_to_offset(q, r):
+    """
+    Converts axial coordinates back to odd-r offset coordinates.
+    For odd-r: row = r, col = q + (r - (r & 1)) // 2.
+    """
+    col = q + (r - (r & 1)) // 2
+    return (r, col)
+
+def axial_direction(direction):
+    dq, dr = direction
+    if dq != 0:
+        dq = dq // abs(dq)
+    if dr != 0:
+        dr = dr // abs(dr)
+    return (dq, dr)
+
 class Yinsh(Game):
     def __init__(self):
-        super().__init__(board_size=11)  # 11x11 hexagonal board
+        # Define the irregular board layout for YINSH.
+        board_layout = [2, 3, 4, 5, 4, 5, 6, 5, 6, 5, 6, 5, 6, 5, 4, 5, 4, 3, 2]
+        super().__init__(board_layout)
         self.game_phase = "placing"
         self.markers = []
+        self.scored_rings = {1: [], 2: []}  # Track scored rings
+
 
     def place_ring(self, player_id, position):
-        """Places a ring during the initial placing phase."""
         if self.game_phase != "placing":
             return False
         if len(self.players[player_id].rings) >= 5:
@@ -17,183 +45,141 @@ class Yinsh(Game):
             return False
         if self.board.get_piece(position) is not None:
             return False
-        self.board.place_piece(position, player_id)  # Update board state
-        self.players[player_id].rings.append(position)  # Add ring to player
-        print(f"Player {player_id} rings after placement: {self.players[player_id].rings}")  # Debugging
+        self.board.place_piece(position, player_id)
+        self.players[player_id].rings.append(position)
+        print(f"Player {player_id} rings after placement: {self.players[player_id].rings}")
         if len(self.players[1].rings) == 5 and len(self.players[2].rings) == 5:
-            self.game_phase = "playing"  # Transition to playing phase
+            self.game_phase = "playing"
         return True
 
-
     def move_ring(self, player_id, start_pos, end_pos):
-        print(f"Current game phase: {self.game_phase}")  # Debug statement
-        print(f"Current player: {self.current_player}")  # Debug statement
-        print(f"Player {player_id} rings: {self.players[player_id].rings}")  # Debug statement
-
+        print(f"Current game phase: {self.game_phase}")
+        print(f"Current player: {self.current_player}")
+        print(f"Player {player_id} rings: {self.players[player_id].rings}")
         if self.game_phase != "playing":
-            print("Move failed: game phase is not 'playing'")  # Debug statement
+            print("Move failed: game phase is not 'playing'")
             return False
         if player_id != self.current_player:
-            print(f"Move failed: not player {player_id}'s turn")  # Debug statement
+            print(f"Move failed: not player {player_id}'s turn")
             return False
         if start_pos not in self.players[player_id].rings:
-            print(f"Move failed: start position {start_pos} not in player {player_id}'s rings")  # Debug statement
+            print(f"Move failed: start position {start_pos} not in player {player_id}'s rings")
             return False
         if end_pos in self.players[1].rings or end_pos in self.players[2].rings:
-            print(f"Move failed: end position {end_pos} occupied by a ring")  # Debug statement
+            print(f"Move failed: end position {end_pos} occupied by a ring")
             return False
-        
+
         # Update player's rings
         self.players[player_id].remove_ring(start_pos)
         self.players[player_id].add_ring(end_pos)
         self.players[player_id].add_marker(start_pos)
         
-        # **Update board grid**:
+        # Update board grid:
         self.board.remove_piece(start_pos)
         self.board.place_piece(end_pos, player_id)
         
         self.flip_markers(start_pos, end_pos)
-        self.check_winner()
+        # Check winner after move.
+        winner = self.check_winner()
+        if winner is not None:
+            print(f"Game over! Player {winner} wins.")
+            return True
+        
         self.switch_turns()
-        print(f"Move successful: {start_pos} -> {end_pos}")  # Debug statement
+        print(f"Move successful: {start_pos} -> {end_pos}")
         return True
 
-
     def flip_markers(self, start, end, dry_run=False):
-        """Flips markers between start and end position."""
-        #print(f"Flipping markers from {start} to {end}, dry_run={dry_run}")  # Debug statement
+        def axial_line(a, b):
+            """Returns all axial coordinates between a and b (inclusive)."""
+            n = max(abs(a[0] - b[0]), abs(a[1] - b[1]), abs(a[0] + a[1] - b[0] - b[1]))
+            path = []
+            for i in range(n + 1):
+                t = i / max(n, 1)
+                q = a[0] * (1 - t) + b[0] * t
+                r = a[1] * (1 - t) + b[1] * t
+                path.append((round(q), round(r)))
+            return path
 
+        start_axial = offset_to_axial(*start)
+        end_axial = offset_to_axial(*end)
+        path_axial = axial_line(start_axial, end_axial)
+        
+        flipped = []
+        for axial in path_axial[1:]:  # Skip start position
+            pos = axial_to_offset(*axial)
+            if pos == start:
+                continue
+            # Check markers
+            if pos in self.players[1].markers:
+                flipped.append(pos)
+                if not dry_run:
+                    self.players[1].remove_marker(pos)
+                    self.players[2].add_marker(pos)
+            elif pos in self.players[2].markers:
+                flipped.append(pos)
+                if not dry_run:
+                    self.players[2].remove_marker(pos)
+                    self.players[1].add_marker(pos)
+        return flipped
 
-        dx = end[0] - start[0]
-        dy = end[1] - start[1]
-
-        # Normalize direction to get unit step
-        step_x = 0 if dx == 0 else dx // abs(dx)
-        step_y = 0 if dy == 0 else dy // abs(dy)
-
-        x, y = start
-        flipped_markers = []
-
-        # Move along the path and flip markers
-        while (x, y) != end:
-            x += step_x
-            y += step_y
-
-            if (x, y) in self.players[1].markers or (x, y) in self.players[2].markers:
-                flipped_markers.append((x, y))
-
-        #print(f"Dry run mode: {dry_run}, Markers to flip: {flipped_markers}")  # Debug statement
-        if not dry_run:
-            for marker in flipped_markers:
-                if marker in self.players[1].markers:
-                    self.players[1].remove_marker(marker)
-                    self.players[2].add_marker(marker)
-                elif marker in self.players[2].markers:
-                    self.players[2].remove_marker(marker)
-                    self.players[1].add_marker(marker)
-        #print(f"Markers flipped: {flipped_markers}")  # Debug statement
-        return flipped_markers
-    
     def check_potential_win(self, player_id, position):
-        """Checks if placing a ring at the given position blocks an opponent's win"""
-        opponent_id = 3 - player_id
-        directions = [(1,0), (0,1), (1,1), (1,-1)]
-
-        for dx, dy in directions:
-            count = 0
-            x, y = position
-            while self.board.is_valid_position((x, y)) and (self.board.get_piece((x, y)) == opponent_id or (x, y) == position):
-                if (x, y) == position or self.board.get_piece((x, y)) == opponent_id:
-                    count += 1
-                x += dx
-                y += dy
-            if count >= 5:
-                return True # This position can block an opponent's win
-    
-        return False
-    
-    def check_immediate_loss(self, player_id, position):
-        """Checks if placing a ring at the given position leads to an immediate loss"""
         opponent_id = 3 - player_id
         directions = [(1, 0), (0, 1), (1, 1), (1, -1)]
+        for x in range(len(self.board.grid)):
+            for y in range(len(self.board.grid[x])):
+                while self.board.is_valid_position((x, y)) and (self.board.get_piece((x, y)) == opponent_id or (x, y) == position):
+                    x += 1
+        return False
 
-        for dx, dy in directions:
-            count = 0
-            x, y = position
-            while self.board.is_valid_position((x, y)) and (self.board.get_piece((x, y)) == player_id or (x, y) == position):
-                if (x, y) == position or self.board.get_piece((x, y)) == player_id:
-                    count += 1
-                x += dx
-                y += dy
-            if count >= 5:
-                return True  # This move could lead to immediate loss for the AI player
-        
-        return 
+    def check_immediate_loss(self, player_id, position):
+        opponent_id = 3 - player_id
+        directions = [(1, 0), (0, 1), (1, 1), (1, -1)]
+        return False
 
     def check_winner(self):
-        """Checks if a player has scored a point by forming 5 markers in a row.
-        When a player forms a sequence of 5 markers (of the same color), that player's markers are removed,
-        and one ring (of their choice) is removed from the board. Once a player has lost 3 rings,
-        they win the game.
-        """
-        directions = [(1, 0), (0, 1), (1, 1), (1, -1)]
-        scoring_player = None  # The player whose markers form a sequence
-        sequences_found = []   # List of sequences (each is a list of positions)
+        # Directions adjusted for odd-r offset neighbors
+        directions = [
+            (0, 1),   # Right
+            (1, 0),   # Down (vertical)
+            (1, 1),   # Down-right (even rows)/Down (odd rows)
+            (1, -1),  # Down-left (even rows)/Down-left (odd rows)
+            (-1, 0),  # Up (vertical)
+            (-1, 1),  # Up-right (even rows)/Up-right (odd rows)
+            (-1, -1), # Up-left (even rows)/Up-left (odd rows)
+        ]
 
-        # Iterate over every cell on the board
-        for x in range(self.board.size):
-            for y in range(self.board.size):
-                # Determine marker owner at (x, y)
-                marker_owner = None
-                if (x, y) in self.players[1].markers:
-                    marker_owner = 1
-                elif (x, y) in self.players[2].markers:
-                    marker_owner = 2
-                if marker_owner is None:
-                    continue  # No marker here, skip
-
-                # Check in each allowed direction for a sequence of 5 markers of the same player
-                for dx, dy in directions:
-                    sequence = [(x, y)]
-                    for i in range(1, 5):
-                        nx, ny = x + dx * i, y + dy * i
-                        if not self.board.is_valid_position((nx, ny)):
-                            break
-                        # If the marker at (nx, ny) belongs to the same player, extend the sequence.
-                        if marker_owner == 1 and (nx, ny) in self.players[1].markers:
-                            sequence.append((nx, ny))
-                        elif marker_owner == 2 and (nx, ny) in self.players[2].markers:
-                            sequence.append((nx, ny))
+        for player_id in [1, 2]:
+            markers = self.players[player_id].markers
+            marker_set = set(markers)
+            for (row, col) in markers:
+                for d_row, d_col in directions:
+                    sequence = []
+                    for step in range(5):
+                        current_row = row + d_row * step
+                        current_col = col + d_col * step
+                        # Adjust column for diagonal moves based on row parity
+                        if d_row != 0 and d_col != 0:
+                            if (row + d_row * (step - 1)) % 2 == 0:  # Previous row even?
+                                current_col += d_row * d_col * (step % 2)
+                        if (current_row, current_col) in marker_set:
+                            sequence.append((current_row, current_col))
                         else:
                             break
-                    if len(sequence) == 5:
-                        scoring_player = marker_owner
-                        sequences_found.append(sequence)
-        
-        # If one or more sequences were found, process the scoring event for that player.
-        if sequences_found and scoring_player is not None:
-            # Remove the markers for all sequences found that belong to the scoring player.
-            #TODO: FIX SO THAT ONLY ONE SEQUENCE IS REMOVED -- PLAYER'S CHOICE
-            for sequence in sequences_found:
-                for pos in sequence:
-                    if scoring_player == 1:
-                        self.players[1].remove_marker(pos)
-                    elif scoring_player == 2:
-                        self.players[2].remove_marker(pos)
-            # Remove one ring from the scoring player.
-            # (Here, we're removing the first ring arbitrarily; you may wish to allow a choice.)
-            #TODO: ALLOW PLAYER TO CHOOSE RING TO REMOVE
-            if self.players[scoring_player].rings:
-                removed_ring = self.players[scoring_player].rings[0]
-                self.players[scoring_player].remove_ring(removed_ring)
-                self.board.remove_piece(removed_ring)
-                print(f"Player {scoring_player} loses a ring at {removed_ring} due to 5 markers in a row.")
-            # Check if this scoring event means the player has lost 3 rings.
-            # (Assuming players start with 5 rings, having 2 left means 3 have been removed.)
-            if len(self.players[scoring_player].rings) == 2:
-                self.game_over = True
-                print(f"Player {scoring_player} has lost 3 rings and wins the game!")
-                return scoring_player  # Return the winning player's ID
-        #TODO: return True if player score = 3
+                    if len(sequence) >= 5:
+                        self.handle_sequence(player_id, sequence)
+                        return player_id
         return None
- 
+
+    def handle_sequence(self, player_id, axial_sequence):
+        opponent_id = 3 - player_id
+        for axial in axial_sequence:
+            pos = axial_to_offset(*axial)
+            if pos in self.players[player_id].markers:
+                self.players[player_id].remove_marker(pos)
+        
+        if self.players[player_id].rings:
+            removed_ring = self.players[player_id].rings.pop()
+            self.scored_rings[player_id].append(removed_ring)
+            self.board.remove_piece(removed_ring)
+        return None

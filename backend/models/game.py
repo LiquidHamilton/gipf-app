@@ -2,8 +2,9 @@ from models.player import Player
 from models.board import Board
 
 class Game:
-    def __init__(self, board_size):
-        self.board = Board(board_size)
+    def __init__(self, board_layout):
+        # board_layout should be a list of row lengths, e.g. [2,3,4,5,5,6,6,6,6,5,5,4,3,2]
+        self.board = Board(board_layout)
         self.players = {1: Player(1), 2: Player(2)}
         self.current_player = 1
         self.game_phase = "placing"
@@ -15,7 +16,7 @@ class Game:
 
     def check_game_over(self):
         """Checks if the game is over"""
-        #Implement game-specific logic
+        # Implement game-specific logic if needed.
         pass
 
     def get_game_state(self):
@@ -39,5 +40,3 @@ class Game:
             "game_phase": self.game_phase,
             "game_over": self.game_over
         }
-
-

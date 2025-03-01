@@ -1,17 +1,27 @@
-.board {
-  display: grid;
-  grid-template-columns: repeat(11, 40px);
-  gap: 5px;
+.board-container {
+  position: relative;
+  width: 100%;
+  height: 600px; /* Adjust height to fit your board */
   margin: 20px auto;
-  width: fit-content;
+  background-color: #f9f9f9; /* Optional background */
+}
+
+.board {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.board-row {
+  position: relative; /* Each row is a relative container for its absolutely positioned cells */
 }
 
 .cell {
-  width: 40px;
-  height: 40px;
   background-color: #ddd;
+  border: 1px solid #aaa;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #aaa;
+  position: absolute;
+  box-sizing: border-box;
 }
