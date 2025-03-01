@@ -3,7 +3,7 @@ from models.board import Board
 
 class Game:
     def __init__(self, board_layout):
-        # board_layout should be a list of row lengths, e.g. [2,3,4,5,5,6,6,6,6,5,5,4,3,2]
+        # board_layout should be a list of row lengths
         self.board = Board(board_layout)
         self.players = {1: Player(1), 2: Player(2)}
         self.current_player = 1

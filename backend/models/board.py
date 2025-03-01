@@ -1,6 +1,6 @@
 class Board:
     def __init__(self, row_lengths):
-        self.row_lengths = row_lengths  # e.g., [2,3,4,5,5,6,6,6,6,5,5,4,3,2]
+        self.row_lengths = row_lengths
         self.grid = self.initialize_board()
 
     def initialize_board(self):
