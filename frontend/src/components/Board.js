@@ -76,15 +76,40 @@ const Board = () => {
         }
     };
 
-    const handleAiMove = async () => {
-        try {
-            await aiMove(gameState.current_player);
-            const newGameState = await getGameState();
-            setGameState(newGameState);
-        } catch (error) {
-            console.error("Error during AI move:", error);
+    const animateAIMove = async (start, end) => {
+        // Get current DOM element for the AI's ring at the start position.
+        // You might need to assign a ref to the ring component for this.
+        const ringElement = document.querySelector(`.ring[data-pos="${start[0]}-${start[1]}"]`);
+        if (ringElement) {
+          // Compute the new left and top using getIntersectionPosition:
+          const pos = getIntersectionPosition(end[0], end[1], gameState.board, cellWidth, cellHeight);
+          // Update style properties so that CSS transition animates the ring.
+          ringElement.style.left = `${pos.x}px`;
+          ringElement.style.top = `${pos.y}px`;
+          
+          // Wait for the transition to complete before updating the full state.
+          await new Promise(resolve => setTimeout(resolve, 500)); // 500ms, adjust to match transition time
         }
-    };
+        
+        // Now update game state (simulate finishing the move)
+        const newGameState = await getGameState();
+        setGameState(newGameState);
+      };
+      
+      // Then, in your AI move handler, use the animateAIMove:
+      const handleAiMove = async () => {
+        try {
+          // Instead of just calling makeMove, extract the AI move details.
+          const aiMoveData = await aiMove(gameState.current_player); // Assume it returns { start, end }
+          if (aiMoveData) {
+            // Animate the AI move first.
+            await animateAIMove(aiMoveData.start, aiMoveData.end);
+          }
+        } catch (error) {
+          console.error("Error during AI move:", error);
+        }
+      };
+      
 
     if (!gameState) return <div>Loading...</div>;
 

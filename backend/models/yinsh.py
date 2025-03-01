@@ -231,64 +231,65 @@ class Yinsh(Game):
         return False
 
     def check_winner(self):
-        """Checks for five-in-a-row sequences and handles scoring."""
+        """
+        Checks if a player has formed a winning sequence of five markers
+        along any of the three primary axial directions (which, in an odd-r grid,
+        capture vertical and diagonal connections).
+        Converts each player's marker positions from offset (row, col) to axial (q, r)
+        and then checks for sequences along (1,0), (0,1), and (-1,1).
+        """
+        # Primary axial directions for a hex grid (each direction covers its opposite)
         axial_directions = [
-            (0, 1),   # Vertical down-right
-            (0, -1),  # Vertical up-left
-            (1, -1),  # Diagonal up-right
-            (-1, 1),  # Diagonal down-left
-            (1, 0),   # Diagonal down-right (alternate)
-            (-1, 0)   # Diagonal up-left (alternate)
+            (1, 0),    # East-West axis (horizontal in axial, but in odd-r this isn't a legal move, so won't trigger)
+            (0, 1),    # Southeast-Northwest axis – corresponds to vertical movement
+            (-1, 1)    # Southwest-Northeast axis – diagonal
         ]
-
-        found_sequences = set()  # To prevent double counting
-
+        
         for player_id in [1, 2]:
-            markers = self.players[player_id].markers
-            marker_set = set(markers)
-
-            for (row, col) in markers:
-                q, r = offset_to_axial(row, col)  # Convert to axial
-
-                for dq, dr in axial_directions:
+            # Convert markers (offset coordinates) to axial coordinates.
+            axialMarkers = { offset_to_axial(row, col) for (row, col) in self.players[player_id].markers }
+            
+            # For each marker, check along each allowed direction.
+            for marker in axialMarkers:
+                for d in axial_directions:
                     sequence = []
-                    
                     for step in range(5):
-                        check_q = q + dq * step
-                        check_r = r + dr * step
-                        check_pos = axial_to_offset(check_q, check_r)
-
-                        # Ensure we stay within valid positions and check the marker
-                        if check_pos in marker_set:
-                            sequence.append(check_pos)
+                        candidate = (marker[0] + d[0] * step, marker[1] + d[1] * step)
+                        if candidate in axialMarkers:
+                            sequence.append(candidate)
                         else:
-                            break  # Stop if there's a gap
-                    
-                    if len(sequence) == 5 and tuple(sequence) not in found_sequences:
-                        found_sequences.add(tuple(sequence))
-                        self.handle_sequence(player_id, sequence)
-
-            # Check if the player has won
-            if len(self.scored_rings[player_id]) >= 3:
-                return player_id
-
+                            break
+                    if len(sequence) == 5:
+                        # Convert the winning sequence back to offset coordinates.
+                        winning_sequence = [axial_to_offset(q, r) for (q, r) in sequence]
+                        self.handle_sequence(player_id, winning_sequence)
+                        # Only declare a win if three rings have been scored.
+                        if len(self.scored_rings[player_id]) >= 3:
+                            return player_id
         return None
 
 
 
+
     def handle_sequence(self, player_id, sequence):
-        # Remove only the markers in the sequence
+        """
+        Given a winning sequence (in offset coordinates), remove those markers
+        and remove a single ring from the player's board. A ring is removed only
+        if the player has not yet scored the maximum (i.e. 3 rings removed).
+        """
+        print(f"Handling sequence for Player {player_id}: {sequence}")
+        # Remove only the markers that form the winning sequence.
         for pos in sequence:
             if pos in self.players[player_id].markers:
                 self.players[player_id].remove_marker(pos)
         
-        # Remove one ring only if available
-        if self.players[player_id].rings:
+        # Remove one ring if available and if not already over-scored.
+        if len(self.players[player_id].rings) > len(self.scored_rings[player_id]):
             removed_ring = self.players[player_id].rings.pop()
             self.scored_rings[player_id].append(removed_ring)
             self.board.remove_piece(removed_ring)
             print(f"Player {player_id} scored 1 ring. Total scored: {len(self.scored_rings[player_id])}")
-       
-        # Check if the player has won
+        
         if len(self.scored_rings[player_id]) >= 3:
             print(f"Player {player_id} WINS!")
+

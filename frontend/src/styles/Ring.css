@@ -1,16 +1,17 @@
 .ring {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    border: 3px solid;
-    flex-shrink: 0;
-  }
-  
-  .ring.player-1 {
-    border-color: blue;
-  }
-  
-  .ring.player-2 {
-    border-color: red;
-  }
-  
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 3px solid;
+  flex-shrink: 0;
+  position: absolute;  /* So that left/top can be animated */
+  transition: left 0.5s ease-in-out, top 0.5s ease-in-out;
+}
+
+.ring.player-1 {
+  border-color: blue;
+}
+
+.ring.player-2 {
+  border-color: red;
+}
