@@ -104,65 +104,78 @@ const Board = () => {
     const getBoardLines = (boardLayout, cellWidth, cellHeight) => {
         const lines = [];
         const intersectionPoints = [];
-    
-        // Calculate the intersection points based on the board layout
+      
+        // Calculate intersection points from the board layout.
         boardLayout.forEach((row, rowIndex) => {
-            row.forEach((_, colIndex) => {
-                const pos = getIntersectionPosition(rowIndex, colIndex, boardLayout, cellWidth, cellHeight);
-                intersectionPoints.push({ x: pos.x, y: pos.y, row: rowIndex, col: colIndex });
-            });
+          row.forEach((_, colIndex) => {
+            const pos = getIntersectionPosition(rowIndex, colIndex, boardLayout, cellWidth, cellHeight);
+            intersectionPoints.push({ x: pos.x, y: pos.y, row: rowIndex, col: colIndex });
+          });
         });
-    
-        // Get neighbors for vertical and diagonal lines
-        const getNeighbors = (point) => {
-            const neighbors = [];
-    
-            // Check for vertical connections (same column)
-            intersectionPoints.forEach((p) => {
-                if (p.col === point.col && Math.abs(p.row - point.row) === 1) {
-                    neighbors.push(p); // Vertical neighbor
-                }
-            });
-    
-            // Check for diagonal connections (left and right diagonals)
-            intersectionPoints.forEach((p) => {
-                const dx = Math.abs(p.x - point.x);
-                const dy = Math.abs(p.y - point.y);
-    
-                // Right diagonal connection
-                if (dx === cellWidth / 2 && dy === cellHeight * 0.75) {
-                    neighbors.push(p);
-                }
-    
-                // Left diagonal connection
-                if (dx === -cellWidth / 2 && dy === cellHeight * 0.75) {
-                    neighbors.push(p);
-                }
-            });
-    
-            return neighbors;
-        };
-    
-        // Add all vertical and diagonal lines
-        intersectionPoints.forEach((point) => {
-            const neighbors = getNeighbors(point);
-            neighbors.forEach((neighbor) => {
-                lines.push(
-                    <line
-                        key={`${point.x}-${point.y}-${neighbor.x}-${neighbor.y}`}
-                        x1={point.x}
-                        y1={point.y}
-                        x2={neighbor.x}
-                        y2={neighbor.y}
-                        stroke="black"
-                        strokeWidth="2"
-                    />
-                );
-            });
+      
+        // Tolerance for grouping intersections (in pixels)
+        const tol = 10; // You might adjust this value
+      
+        // Group points by vertical alignment using tolerance on x
+        const verticalGroups = {};
+        intersectionPoints.forEach(point => {
+          // Instead of rounding, find an existing group key where the difference is within tolerance.
+          let foundKey = null;
+          Object.keys(verticalGroups).forEach(key => {
+            if (Math.abs(point.x - key) < tol) {
+              foundKey = key;
+            }
+          });
+          if (foundKey !== null) {
+            verticalGroups[foundKey].push(point);
+          } else {
+            verticalGroups[point.x] = [point];
+          }
         });
-    
+      
+        // Draw vertical lines: sort each group by y and connect consecutive points
+        Object.values(verticalGroups).forEach(group => {
+          group.sort((a, b) => a.y - b.y);
+          for (let i = 0; i < group.length - 1; i++) {
+            lines.push(
+              <line
+                key={`vert-${group[i].x}-${group[i].y}-${group[i+1].x}-${group[i+1].y}`}
+                x1={group[i].x}
+                y1={group[i].y}
+                x2={group[i+1].x}
+                y2={group[i+1].y}
+                stroke="black"
+                strokeWidth="2"
+              />
+            );
+          }
+        });
+      
+        // Also add diagonal lines (if still desired) using your previous logic:
+        intersectionPoints.forEach(point => {
+          intersectionPoints.forEach(neighbor => {
+            const dx = Math.abs(neighbor.x - point.x);
+            const dy = Math.abs(neighbor.y - point.y);
+            // Diagonal connections (using cellWidth/2 and cellHeight*0.75 as before)
+            if (dx === cellWidth / 2 && dy === cellHeight * 0.75) {
+              lines.push(
+                <line
+                  key={`diag-${point.x}-${point.y}-${neighbor.x}-${neighbor.y}`}
+                  x1={point.x}
+                  y1={point.y}
+                  x2={neighbor.x}
+                  y2={neighbor.y}
+                  stroke="black"
+                  strokeWidth="2"
+                />
+              );
+            }
+          });
+        });
+      
         return lines;
-    };
+      };
+      
 
     
 
