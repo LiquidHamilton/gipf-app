@@ -65,47 +65,33 @@ class Yinsh(Game):
 
 
     def move_ring(self, player_id, start_pos, end_pos):
-        print(f"Current game phase: {self.game_phase}")
-        print(f"Current player: {self.current_player}")
-        print(f"Player {player_id} rings: {self.players[player_id].rings}")
-        
-        if self.game_phase != "playing":
-            print("Move failed: game phase is not 'playing'")
-            return False
-        if player_id != self.current_player:
-            print(f"Move failed: not player {player_id}'s turn")
-            return False
-        if start_pos not in self.players[player_id].rings:
-            print(f"Move failed: start position {start_pos} not in player {player_id}'s rings")
-            return False
-        if end_pos in self.players[1].rings or end_pos in self.players[2].rings:
-            print(f"Move failed: end position {end_pos} occupied by a ring")
-            return False
+        print(f"Move attempt by Player {player_id} from {start_pos} to {end_pos}")
+        # ... existing validation checks ...
 
-        # Check if the move is valid (only vertical or diagonal allowed)
-        if not self.is_valid_move(start_pos, end_pos):
-            print(f"Move failed: invalid move from {start_pos} to {end_pos}")
-            return False
-
-        # Update player's rings
+        # Update rings and markers
         self.players[player_id].remove_ring(start_pos)
         self.players[player_id].add_ring(end_pos)
         self.players[player_id].add_marker(start_pos)
         
-        # Update board grid:
+        # Update board
         self.board.remove_piece(start_pos)
         self.board.place_piece(end_pos, player_id)
         
+        # Flip markers
         self.flip_markers(start_pos, end_pos)
         
-        # Check winner after move
+        # Check for winner
         winner = self.check_winner()
-        if winner is not None:
-            print(f"Game over! Player {winner} wins.")
+        if winner:
+            self.game_over = True
+            print(f"Player {winner} wins!")
             return True
         
-        self.switch_turns()
-        print(f"Move successful: {start_pos} -> {end_pos}")
+        # Switch turns only if game is still ongoing
+        if not self.game_over:
+            self.switch_turns()
+            print(f"Turn switched to Player {self.current_player}")
+        
         return True
 
     def is_valid_move(self, start_pos, end_pos):

@@ -33,38 +33,38 @@ def get_game_state():
 
 @app.route('/make-move', methods=['POST'])
 def make_move():
-    """Processes a player's move."""
     data = request.get_json()
     player_id = data.get("player_id")
     start = tuple(data.get("start"))
     end = tuple(data.get("end"))
 
     if player_id is None or start is None or end is None:
-        print("Invalid move request:", data)
         return jsonify({"error": "Invalid request"}), 400
 
-    # Process human player's move
+    # Process human move
     success = game.move_ring(player_id, start, end)
-    if success:
-        # Check if it's the AI's turn (assuming alternating turns)
-        if game.game_phase == "playing" and game.current_player != player_id:  # Assuming alternating turns
-            # It's AI's turn, make the AI move
-            ai = YinshAI(game.current_player)
-            ai_move = ai.make_move(game)
-            if ai_move:
-                # AI makes a move
-                success = game.move_ring(game.current_player, ai_move['start'], ai_move['end'])
-                if success:
-                    state = game.get_game_state()
-                    #print("Updated game state after AI move:", state)  # Debug statement
-                    return jsonify(state), 200
-                else:
-                    return jsonify({"error": "AI move failed"}), 400
-        state = game.get_game_state()
-        #print("Updated game state after human move:", state)  # Debug statement
-        return jsonify(state), 200
-    else:
+    if not success:
         return jsonify({"error": "Invalid move"}), 400
+
+    # Get updated state after human move
+    current_state = game.get_game_state()
+
+    # Only proceed to AI move if game isn't over
+    if current_state.get("game_over"):
+        return jsonify(current_state), 200
+
+    # Check if it's AI's turn
+    if game.current_player != player_id:  # Human's turn ended, AI should move
+        ai = YinshAI(game.current_player)
+        ai_move = ai.make_move(game)
+        if ai_move:
+            ai_success = game.move_ring(game.current_player, ai_move['start'], ai_move['end'])
+            if not ai_success:
+                print("AI move failed but human move succeeded")
+            
+    # Always return the latest state
+    final_state = game.get_game_state()
+    return jsonify(final_state), 200
 
 
 
