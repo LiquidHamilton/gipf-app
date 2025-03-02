@@ -3,8 +3,11 @@ import random
 
 def offset_to_axial(row, col):
     q = col - (row - (row & 1)) // 2
-    r = row
-    return (q, r)
+    return (q, row)
+
+def axial_to_offset(q, r):
+    col = q + (r - (r & 1)) // 2
+    return (r, col)
 
 def axial_direction(direction):
     dq, dr = direction

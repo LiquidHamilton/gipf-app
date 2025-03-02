@@ -23,72 +23,13 @@ class Move:
         return False
 
     def is_valid(self, game):
-        """Validates the move with basic conditions and path rules."""
+        if not self.is_valid(game):
+            return False
         if game.game_phase != "playing":
             return False
         if self.player_id != game.current_player:
             return False
-        # The starting cell must contain the player's ring and the end cell must be empty.
         if game.board.get_piece(self.start_pos) != self.player_id:
             return False
-        if game.board.get_piece(self.end_pos) is not None:
-            return False
-        # Check that the movement path obeys the game rules.
-        if not self.is_valid_path(game):
-            return False
-        return True
-
-    def is_valid_path(self, game):
-        """
-        Validates that the move from start_pos to end_pos follows these rules:
-          1. The move is in a straight line (allowed directions: vertical and diagonals).
-          2. The ring may skip any number of empty spaces initially.
-          3. If markers are encountered, the ring must stop on the first empty cell immediately after the last marker.
-          4. The ring cannot cross over any other ring.
-          5. The ring cannot end on a space containing a marker or ring.
-        """
-        sx, sy = self.start_pos
-        ex, ey = self.end_pos
-        dx = ex - sx
-        dy = ey - sy
-
-        # Must actually move.
-        if dx == 0 and dy == 0:
-            return False
-
-        # Normalize to get step.
-        step_x = (dx // abs(dx)) if dx != 0 else 0
-        step_y = (dy // abs(dy)) if dy != 0 else 0
-        allowed_directions = [(-1, 0), (1, 0), (-1, -1), (-1, 1), (1, -1), (1, 1)]
-        if (step_x, step_y) not in allowed_directions:
-            return False
-
-        # Traverse the path from the cell immediately after start_pos.
-        x, y = sx + step_x, sy + step_y
-        markers_encountered = False
-
-        while (x, y) != (ex, ey):
-            # If a ring is encountered, the move is invalid.
-            if game.board.get_piece((x, y)) is not None:
-                return False
-
-            # Check if the cell contains a marker.
-            cell_has_marker = ((x, y) in game.players[1].markers or (x, y) in game.players[2].markers)
-            if cell_has_marker:
-                markers_encountered = True
-            else:
-                # Once markers have been encountered, the first empty cell must be the destination.
-                if markers_encountered:
-                    if (x, y) != (ex, ey):
-                        return False
-                    break
-            x += step_x
-            y += step_y
-
-        # Final check: the end cell must be empty of rings and markers.
-        if game.board.get_piece(self.end_pos) is not None:
-            return False
-        if (self.end_pos in game.players[1].markers or self.end_pos in game.players[2].markers):
-            return False
-
-        return True
+        
+        return game.move_ring(self.player_id, self.start_pos, self.end_pos)

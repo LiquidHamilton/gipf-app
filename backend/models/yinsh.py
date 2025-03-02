@@ -2,20 +2,11 @@ from models.game import Game
 from models.move import Move
 
 def offset_to_axial(row, col):
-    """
-    Converts odd-r offset coordinates to axial coordinates.
-    Assumes an odd-r layout.
-    """
-    q = col - (row - (row & 1)) // 2
-    r = row
-    return (q, r)
+    q = col - (row - (row % 2)) // 2
+    return (q, row)
 
 def axial_to_offset(q, r):
-    """
-    Converts axial coordinates back to odd-r offset coordinates.
-    For odd-r: row = r, col = q + (r - (r & 1)) // 2.
-    """
-    col = q + (r - (r & 1)) // 2
+    col = q + (r - (r % 2)) // 2
     return (r, col)
 
 def axial_direction(direction):
@@ -66,97 +57,116 @@ class Yinsh(Game):
 
     def move_ring(self, player_id, start_pos, end_pos):
         print(f"Move attempt by Player {player_id} from {start_pos} to {end_pos}")
-        # ... existing validation checks ...
-
-        # Update rings and markers
-        self.players[player_id].remove_ring(start_pos)
-        self.players[player_id].add_ring(end_pos)
-        self.players[player_id].add_marker(start_pos)
         
-        # Update board
+        # Early exit if game is already over
+        if self.game_over:
+            print("Game over - move rejected")
+            return False
+
+        # Validate move first
+        if not self.is_valid_move(start_pos, end_pos):
+            print(f"Invalid move from {start_pos} to {end_pos}")
+            return False
+
+        # Remove ring from start
+        self.players[player_id].remove_ring(start_pos)
+        self.board.grid[start_pos[0]][start_pos[1]] = None
+        
+        # Place marker at start position
+        self.players[player_id].add_marker(start_pos)
+        self.board.markers_grid[start_pos[0]][start_pos[1]] = player_id
+        
+        # Place ring at end position
+        self.players[player_id].add_ring(end_pos)
+        self.board.grid[end_pos[0]][end_pos[1]] = player_id
+        
+        # Update board state
         self.board.remove_piece(start_pos)
         self.board.place_piece(end_pos, player_id)
         
-        # Flip markers
+        # Flip markers along the path
         self.flip_markers(start_pos, end_pos)
         
-        # Check for winner
+        # Check for winner AFTER updating state
         winner = self.check_winner()
         if winner:
             self.game_over = True
             print(f"Player {winner} wins!")
-            return True
-        
-        # Switch turns only if game is still ongoing
+            return True  # Valid move that ended the game
+
+        # Only switch turns if game isn't over
         if not self.game_over:
             self.switch_turns()
             print(f"Turn switched to Player {self.current_player}")
-        
+
         return True
 
     def is_valid_move(self, start_pos, end_pos):
         start_row, start_col = start_pos
         end_row, end_col = end_pos
-        
-        # Calculate direction components
-        d_row = end_row - start_row
-        d_col = end_col - start_col
-        
-        # Disallow horizontal moves (0 row change)
-        if d_row == 0:
+
+        # Basic checks
+        if start_pos == end_pos:
+            return False
+        if not self.board.is_valid_position(start_pos) or not self.board.is_valid_position(end_pos):
+            return False
+        if self.board.get_ring(start_pos) != self.current_player:
+            return False
+        if self.board.get_ring(end_pos) is not None:
             return False
 
-        # Calculate direction vector
-        try:
-            step_row = d_row // abs(d_row)
-            step_col = d_col // abs(d_col) if d_col != 0 else 0
-        except ZeroDivisionError:
-            return False
-
-        # Vertical movement specific validation
-        if step_col == 0:  # Pure vertical move
-            current_row, current_col = start_row, start_col
-            for step in range(1, abs(d_row) + 1):
-                current_row = start_row + step * step_row
-                
-                # Calculate column adjustment for odd-r offset
-                if current_row % 2 != start_row % 2:  # Parity changed
-                    current_col = start_col + (step_row > 0) * (step % 2)
-                else:
-                    current_col = start_col
-                    
-                # Skip check for final position
-                if (current_row, current_col) == end_pos:
-                    continue
-                    
-                if not self.board.is_valid_position((current_row, current_col)):
-                    return False
-                if self.board.get_piece((current_row, current_col)) is not None:
-                    return False
+        # Vertical movement (odd-r vertical)
+        if start_col == end_col:
+            step = 1 if end_row > start_row else -1
+            current_row = start_row
+            current_col = start_col
             
-            # Final position must match calculated end column
-            final_col = current_col
-            return end_col == final_col
-
-        # Diagonal validation
-        elif abs(d_row) == abs(d_col):
-            current_row, current_col = start_row, start_col
-            for step in range(1, abs(d_row)):
-                current_row += step_row
-                current_col += step_col
-                
-                # Adjust for odd-r offset in diagonal moves
+            while current_row != end_row:
+                current_row += step
+                # Calculate column adjustment based on row parity
                 if current_row % 2 != start_row % 2:
-                    current_col += step_col * (step % 2)
+                    current_col += (-1 if step > 0 else 1) * (start_row % 2)
                 
-                if not self.board.is_valid_position((current_row, current_col)):
+                current_pos = (current_row, current_col)
+                
+                if not self.board.is_valid_position(current_pos):
                     return False
-                if self.board.get_piece((current_row, current_col)) is not None:
+                if self.board.get_ring(current_pos) is not None:
                     return False
-            
-            return True
+                if current_row == end_row:
+                    break
+                    
+            # Final position check
+            return current_pos == end_pos and self.board.get_ring(end_pos) is None
 
-        return False
+        # Diagonal movement (axial straight line)
+        else:
+            start_axial = offset_to_axial(start_row, start_col)
+            end_axial = offset_to_axial(end_row, end_col)
+            
+            dq = end_axial[0] - start_axial[0]
+            dr = end_axial[1] - start_axial[1]
+
+            # Must move in straight axial line
+            if not (dq == 0 or dr == 0 or dq == -dr):
+                return False
+
+            steps = max(abs(dq), abs(dr))
+            dir_q = dq // steps if dq != 0 else 0
+            dir_r = dr // steps if dr != 0 else 0
+
+            # Check path in axial coordinates
+            for i in range(1, steps + 1):
+                current_q = start_axial[0] + dir_q * i
+                current_r = start_axial[1] + dir_r * i
+                current_pos = axial_to_offset(current_q, current_r)
+                
+                if not self.board.is_valid_position(current_pos):
+                    return False
+                if i < steps and self.board.get_ring(current_pos) is not None:
+                    return False
+
+            return True
     
     def get_move_direction(self, start, end):
         """Returns normalized direction vector or None if invalid"""
@@ -172,7 +182,7 @@ class Yinsh(Game):
         except ZeroDivisionError:
             return None
             
-        # Vertical must have 0 column change
+        # Vertical must have 0 column change in axial terms (odd-r adjusted)
         if step_col == 0:
             return (step_row, 0)
         # Diagonal must have 1:1 ratio
@@ -196,24 +206,26 @@ class Yinsh(Game):
 
         start_axial = offset_to_axial(*start)
         end_axial = offset_to_axial(*end)
-        path_axial = axial_line(start_axial, end_axial)
+        path = axial_line(start_axial, end_axial)
         
         flipped = []
-        for axial in path_axial[1:]:  # Skip start position
+        for axial in path[1:-1]:
             pos = axial_to_offset(*axial)
-            if pos == start:
-                continue
-            # Check markers
+            # Check both players' markers and update board state
             if pos in self.players[1].markers:
-                flipped.append(pos)
                 if not dry_run:
                     self.players[1].remove_marker(pos)
+                    self.board.remove_marker(pos)
                     self.players[2].add_marker(pos)
-            elif pos in self.players[2].markers:
+                    self.board.place_marker(pos, 2)
                 flipped.append(pos)
+            elif pos in self.players[2].markers:
                 if not dry_run:
                     self.players[2].remove_marker(pos)
+                    self.board.remove_marker(pos)
                     self.players[1].add_marker(pos)
+                    self.board.place_marker(pos, 1)
+                flipped.append(pos)
         return flipped
 
     def check_potential_win(self, player_id, position):
@@ -231,65 +243,99 @@ class Yinsh(Game):
         return False
 
     def check_winner(self):
-        """
-        Checks if a player has formed a winning sequence of five markers
-        along any of the three primary axial directions (which, in an odd-r grid,
-        capture vertical and diagonal connections).
-        Converts each player's marker positions from offset (row, col) to axial (q, r)
-        and then checks for sequences along (1,0), (0,1), and (-1,1).
-        """
-        # Primary axial directions for a hex grid (each direction covers its opposite)
         axial_directions = [
-            (1, 0),    # East-West axis (horizontal in axial, but in odd-r this isn't a legal move, so won't trigger)
-            (0, 1),    # Southeast-Northwest axis – corresponds to vertical movement
-            (-1, 1)    # Southwest-Northeast axis – diagonal
+            (0, 1), (0, -1), (-1, 1), 
+            (1, -1), (1, 1), (-1, -1)
         ]
-        
+        processed_sequences = set()
+
         for player_id in [1, 2]:
-            # Convert markers (offset coordinates) to axial coordinates.
-            axialMarkers = { offset_to_axial(row, col) for (row, col) in self.players[player_id].markers }
+            markers = self.players[player_id].markers
+            axial_markers = {offset_to_axial(row, col) for (row, col) in markers}
             
-            # For each marker, check along each allowed direction.
-            for marker in axialMarkers:
+            # Check axial directions (diagonals)
+            for marker in axial_markers:
                 for d in axial_directions:
                     sequence = []
-                    for step in range(5):
-                        candidate = (marker[0] + d[0] * step, marker[1] + d[1] * step)
-                        if candidate in axialMarkers:
+                    for step in range(-4, 5):
+                        q = marker[0] + d[0] * step
+                        r = marker[1] + d[1] * step
+                        candidate = (q, r)
+                        if candidate in axial_markers:
                             sequence.append(candidate)
                         else:
-                            break
-                    if len(sequence) == 5:
-                        # Convert the winning sequence back to offset coordinates.
-                        winning_sequence = [axial_to_offset(q, r) for (q, r) in sequence]
-                        self.handle_sequence(player_id, winning_sequence)
-                        # Only declare a win if three rings have been scored.
-                        if len(self.scored_rings[player_id]) >= 3:
+                            if len(sequence) >= 5:
+                                break
+                            sequence = []
+                    
+                    if len(sequence) >= 5:
+                        sorted_seq = tuple(sorted(sequence[-5:]))
+                        if sorted_seq not in processed_sequences:
+                            processed_sequences.add(sorted_seq)
+                            winning_sequence = [axial_to_offset(q, r) for (q, r) in sorted_seq]
+                            if self.handle_sequence(player_id, winning_sequence):
+                                return player_id
+
+            # Check vertical sequences in offset coordinates
+            for (row, col) in markers:
+                # Check downward vertical
+                seq_down = []
+                current_row, current_col = row, col
+                while (current_row, current_col) in markers:
+                    seq_down.append((current_row, current_col))
+                    # Move down with odd-r column adjustment
+                    next_row = current_row + 1
+                    next_col = current_col - (current_row % 2)
+                    current_row, current_col = next_row, next_col
+                    
+                # Check upward vertical
+                seq_up = []
+                current_row, current_col = row, col
+                while (current_row, current_col) in markers:
+                    seq_up.append((current_row, current_col))
+                    # Move up with odd-r column adjustment
+                    next_row = current_row - 1
+                    next_col = current_col + ((current_row - 1) % 2)
+                    current_row, current_col = next_row, next_col
+
+                # Combine sequences (current marker is in both)
+                full_sequence = list(reversed(seq_up[:-1])) + seq_down
+                if len(full_sequence) >= 5:
+                    # Convert to axial for duplicate check
+                    axial_seq = tuple(sorted(
+                        [offset_to_axial(r, c) for (r, c) in full_sequence[-5:]]
+                    ))
+                    if axial_seq not in processed_sequences:
+                        processed_sequences.add(axial_seq)
+                        if self.handle_sequence(player_id, full_sequence[-5:]):
                             return player_id
+
         return None
 
 
-
-
     def handle_sequence(self, player_id, sequence):
-        """
-        Given a winning sequence (in offset coordinates), remove those markers
-        and remove a single ring from the player's board. A ring is removed only
-        if the player has not yet scored the maximum (i.e. 3 rings removed).
-        """
         print(f"Handling sequence for Player {player_id}: {sequence}")
-        # Remove only the markers that form the winning sequence.
+        
+        # Remove only markers from the sequence
         for pos in sequence:
             if pos in self.players[player_id].markers:
+                print(f"Removing marker at {pos}")
                 self.players[player_id].remove_marker(pos)
+                self.board.remove_marker(pos)
         
-        # Remove one ring if available and if not already over-scored.
-        if len(self.players[player_id].rings) > len(self.scored_rings[player_id]):
-            removed_ring = self.players[player_id].rings.pop()
-            self.scored_rings[player_id].append(removed_ring)
-            self.board.remove_piece(removed_ring)
-            print(f"Player {player_id} scored 1 ring. Total scored: {len(self.scored_rings[player_id])}")
+        # Remove one ring if available
+        if len(self.players[player_id].rings) > 0:
+            try:
+                removed_ring = self.players[player_id].rings.pop()
+                self.scored_rings[player_id].append(removed_ring)
+                self.board.remove_piece(removed_ring)
+                print(f"Player {player_id} scored a ring. Total: {len(self.scored_rings[player_id])}")
+            except IndexError:
+                print("No rings left to score")
         
         if len(self.scored_rings[player_id]) >= 3:
-            print(f"Player {player_id} WINS!")
+            self.game_over = True
+            print(f"PLAYER {player_id} WINS!")
+            return player_id
+        return None
 
