@@ -25,28 +25,41 @@ class YinshAI(AI):
             (-1, 1), (1, -1), (1, 1)
         ]     
     
+    # Update YinshAI's move generation to use axial directions:
     def get_possible_moves(self, game):
         valid_moves = []
+        axial_directions = [(0,1), (0,-1), (1,0), (-1,0), (1,-1), (-1,1)]
+        
         for ring in game.players[self.player_id].rings:
-            rx, ry = ring  # Cache start position
-            for dx, dy in self.allowed_directions:
-                x, y = rx, ry
+            start_q, start_r = offset_to_axial(*ring)
+            
+            for dq, dr in axial_directions:
+                current_q, current_r = start_q, start_r
                 markers_passed = []
+                
                 while True:
-                    x += dx
-                    y += dy
-                    if not game.board.is_valid_position((x, y)):
+                    current_q += dq
+                    current_r += dr
+                    current_pos = axial_to_offset(current_q, current_r)
+                    
+                    if not game.board.is_valid_position(current_pos):
                         break
-                    if game.board.get_piece((x, y)) is not None:
+                        
+                    if game.board.get_ring(current_pos):
                         break
-                    if (x, y) in game.players[1].markers + game.players[2].markers:
-                        markers_passed.append((x, y))
+                    
+                    if game.board.get_marker(current_pos):
+                        markers_passed.append(current_pos)
                         continue
+                    
+                    valid_moves.append({
+                        'start': ring,
+                        'end': current_pos,
+                        'markers': markers_passed.copy()
+                    })
+                    
                     if markers_passed:
-                        valid_moves.append({'start': ring, 'end': (x, y)})
-                        break
-                    else:
-                        valid_moves.append({'start': ring, 'end': (x, y)})
+                        break  # Must stop after markers
         return valid_moves
     
     def evaluate_moves(self, game, moves):
